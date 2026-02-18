@@ -5,6 +5,7 @@ void snake_init(Snake_t *snake, Point_t start, uint16_t initial_length, Directio
 {
     snake->direction = dir;
     snake->length = initial_length;
+    memset(snake->fat, 0, sizeof(snake->fat));
 
     for (uint16_t i = 0; i < initial_length; i++) {
         snake->body[i].x = start.x - i;
@@ -14,10 +15,12 @@ void snake_init(Snake_t *snake, Point_t start, uint16_t initial_length, Directio
 
 void snake_move(Snake_t *snake)
 {
-    /* Shift body segments: each segment takes the position of the one in front */
+    /* Shift body segments and fat flags */
     for (uint16_t i = snake->length - 1; i > 0; i--) {
         snake->body[i] = snake->body[i - 1];
+        snake->fat[i] = snake->fat[i - 1];
     }
+    snake->fat[0] = false;
 
     /* Move head in current direction */
     switch (snake->direction) {

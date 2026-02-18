@@ -5,6 +5,7 @@
 
 typedef struct {
     Point_t body[SNAKE_MAX_LENGTH];
+    bool fat[SNAKE_MAX_LENGTH];   /* segment has food bulge */
     uint16_t length;
     Direction_t direction;
 } Snake_t;
