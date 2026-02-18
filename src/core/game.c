@@ -66,6 +66,7 @@ void game_update(Game_t *game)
 
     /* Food consumption */
     if (head.x == game->food.x && head.y == game->food.y) {
+        game->snake.fat[0] = true;
         snake_grow(&game->snake);
         game->score += 10;
         game_spawn_food(game);

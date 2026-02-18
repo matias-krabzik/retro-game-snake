@@ -50,9 +50,9 @@ static bool run_menu(Theme_t *theme)
 int main(void)
 {
     GameConfig_t config = {
-        .board_width = 30,
-        .board_height = 15,
-        .initial_length = 3,
+        .board_width = 20,
+        .board_height = 9,
+        .initial_length = 5,
         .tick_ms = 150
     };
 
