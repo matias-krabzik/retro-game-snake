@@ -1,0 +1,14 @@
+# Compiled binaries
+src/ports/pc/snake
+src/ports/pc-gui/snake-gui
+
+# Object files
+*.o
+*.obj
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
