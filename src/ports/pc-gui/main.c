@@ -11,12 +11,16 @@ extern Theme_t *platform_get_theme(void);
 extern void platform_render_menu(int view, int selected, int first_visible,
                                  int scroll_px, const Theme_t *theme);
 extern void platform_render_paused(const Game_t *game);
+extern int platform_speed_up(void);
+extern int platform_speed_down(void);
+extern uint32_t platform_get_tick_ms(void);
 
 /* Menu views */
 #define VIEW_MAIN     0
 #define VIEW_COLORS   1
-#define VIEW_VERSIONS 2
-#define VIEW_CREDITS  3
+#define VIEW_CREDITS  2
+#define VIEW_SOUND    3
+#define VIEW_SPEED    4
 
 /* Layout */
 #define MAX_VISIBLE          4    /* items that fit on LCD */
@@ -39,10 +43,11 @@ static const char *CREDITS_LINES[] = {
 static int item_count(int view)
 {
     switch (view) {
-    case VIEW_MAIN:     return 5;
+    case VIEW_MAIN:     return 6;
     case VIEW_COLORS:   return PALETTE_COUNT;
-    case VIEW_VERSIONS: return STYLE_COUNT;
     case VIEW_CREDITS:  return CREDITS_COUNT;
+    case VIEW_SOUND:    return 0;
+    case VIEW_SPEED:    return 0;
     }
     return 0;
 }
@@ -52,12 +57,11 @@ static const char *item_label(int view, int idx)
     switch (view) {
     case VIEW_MAIN: {
         static const char *labels[] = {
-            "New game", "Color", "Version", "Credits", "Exit"
+            "New game", "Color", "Speed", "Sound", "Credits", "Exit"
         };
         return labels[idx];
     }
     case VIEW_COLORS:   return PALETTES[idx].name;
-    case VIEW_VERSIONS: return STYLE_NAMES[idx];
     case VIEW_CREDITS:  return CREDITS_LINES[idx];
     }
     return "";
@@ -65,7 +69,7 @@ static const char *item_label(int view, int idx)
 
 static int visible_text_w(int view)
 {
-    return (view == VIEW_COLORS || view == VIEW_VERSIONS)
+    return (view == VIEW_COLORS)
         ? SUBMENU_TEXT_AREA_W : MENU_TEXT_AREA_W;
 }
 
@@ -91,31 +95,33 @@ static bool run_menu(Theme_t *theme)
         /* Render */
         platform_render_menu(view, selected, first_visible, scroll_px, theme);
 
-        /* Scroll animation for highlighted item */
-        int tw = lcd_text_width(item_label(view, selected));
-        int max_w = visible_text_w(view);
-        int max_scroll = tw - max_w;
+        /* Scroll animation for highlighted item (not used in sound view) */
+        if (view != VIEW_SOUND && view != VIEW_SPEED) {
+            int tw = lcd_text_width(item_label(view, selected));
+            int max_w = visible_text_w(view);
+            int max_scroll = tw - max_w;
 
-        if (max_scroll > 0) {
-            scroll_timer++;
-            if (!scrolling_fwd) {
-                /* Pausing at start */
-                if (scroll_timer >= SCROLL_PAUSE_FRAMES) {
-                    scrolling_fwd = true;
-                    scroll_timer = 0;
-                }
-            } else if (scroll_px < max_scroll) {
-                /* Scrolling forward */
-                if (scroll_timer >= SCROLL_SPEED_FRAMES) {
-                    scroll_px++;
-                    scroll_timer = 0;
-                }
-            } else {
-                /* Pausing at end, then reset */
-                if (scroll_timer >= SCROLL_PAUSE_FRAMES) {
-                    scroll_px = 0;
-                    scroll_timer = 0;
-                    scrolling_fwd = false;
+            if (max_scroll > 0) {
+                scroll_timer++;
+                if (!scrolling_fwd) {
+                    /* Pausing at start */
+                    if (scroll_timer >= SCROLL_PAUSE_FRAMES) {
+                        scrolling_fwd = true;
+                        scroll_timer = 0;
+                    }
+                } else if (scroll_px < max_scroll) {
+                    /* Scrolling forward */
+                    if (scroll_timer >= SCROLL_SPEED_FRAMES) {
+                        scroll_px++;
+                        scroll_timer = 0;
+                    }
+                } else {
+                    /* Pausing at end, then reset */
+                    if (scroll_timer >= SCROLL_PAUSE_FRAMES) {
+                        scroll_px = 0;
+                        scroll_timer = 0;
+                        scrolling_fwd = false;
+                    }
                 }
             }
         }
@@ -123,6 +129,35 @@ static bool run_menu(Theme_t *theme)
         /* Input */
         int key;
         while ((key = GetKeyPressed()) != 0) {
+            /* Sound/Speed view: LEFT/RIGHT adjusts level */
+            if (view == VIEW_SOUND || view == VIEW_SPEED) {
+                switch (key) {
+                case KEY_LEFT: case KEY_A:
+                    if (view == VIEW_SOUND) audio_volume_down();
+                    else platform_speed_down();
+                    audio_play(SND_NAV);
+                    break;
+                case KEY_RIGHT: case KEY_D:
+                    if (view == VIEW_SOUND) audio_volume_up();
+                    else platform_speed_up();
+                    audio_play(SND_NAV);
+                    break;
+                case KEY_ENTER: case KEY_KP_ENTER:
+                case KEY_ESCAPE: case KEY_BACKSPACE: {
+                    int ret_idx = (view == VIEW_SPEED) ? 2 : 3;
+                    audio_play(SND_SELECT);
+                    view = VIEW_MAIN;
+                    selected = ret_idx;
+                    first_visible = 0;
+                    ensure_visible(&first_visible, selected,
+                                   item_count(view));
+                    scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
+                    break;
+                }
+                }
+                continue;
+            }
+
             int count = item_count(view);
 
             switch (key) {
@@ -154,36 +189,38 @@ static bool run_menu(Theme_t *theme)
                         scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                         break;
                     case 2:
-                        view = VIEW_VERSIONS;
-                        selected = theme->style_idx;
+                        view = VIEW_SPEED;
+                        selected = 0;
                         first_visible = 0;
-                        ensure_visible(&first_visible, selected,
-                                       item_count(view));
                         scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                         break;
                     case 3:
+                        view = VIEW_SOUND;
+                        selected = 0;
+                        first_visible = 0;
+                        scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
+                        break;
+                    case 4:
                         view = VIEW_CREDITS;
                         selected = 0;
                         first_visible = 0;
                         scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                         break;
-                    case 4: return false;  /* Exit */
+                    case 5: return false;  /* Exit */
                     }
                 } else if (view == VIEW_CREDITS) {
                     /* Back to main menu */
                     view = VIEW_MAIN;
-                    selected = 3;
+                    selected = 4;
                     first_visible = 0;
                     ensure_visible(&first_visible, selected,
                                    item_count(view));
                     scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                 } else {
                     /* Submenu: select option and go back */
-                    int prev_view = view;
-                    if (view == VIEW_COLORS)   theme->palette_idx = selected;
-                    if (view == VIEW_VERSIONS) theme->style_idx = selected;
+                    if (view == VIEW_COLORS) theme->palette_idx = selected;
                     view = VIEW_MAIN;
-                    selected = (prev_view == VIEW_COLORS) ? 1 : 2;
+                    selected = 1;
                     first_visible = 0;
                     ensure_visible(&first_visible, selected,
                                    item_count(view));
@@ -197,8 +234,7 @@ static bool run_menu(Theme_t *theme)
                     view = VIEW_MAIN;
                     switch (prev_view) {
                     case VIEW_COLORS:   selected = 1; break;
-                    case VIEW_VERSIONS: selected = 2; break;
-                    case VIEW_CREDITS:  selected = 3; break;
+                    case VIEW_CREDITS:  selected = 4; break;
                     }
                     first_visible = 0;
                     ensure_visible(&first_visible, selected,
@@ -244,6 +280,7 @@ int main(void)
             show_menu = false;
         }
 
+        config.tick_ms = platform_get_tick_ms();
         game_init(&game, config, (uint32_t)time(NULL));
         double tick_accumulator = 0.0;
         double tick_interval = config.tick_ms / 1000.0;
@@ -314,7 +351,7 @@ int main(void)
             InputEvent_t input = platform_get_input();
             if (input == INPUT_QUIT) {
                 running = false;
-            } else if (input == INPUT_RESTART) {
+            } else if (input == INPUT_RESTART || input == INPUT_PAUSE) {
                 break;
             } else if (IsKeyPressed(KEY_M)) {
                 show_menu = true;

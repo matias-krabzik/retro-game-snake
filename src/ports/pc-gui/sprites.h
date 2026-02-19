@@ -131,16 +131,6 @@ static const uint8_t FONT_SMALL[][SFONT_H * SFONT_W] = {
 #define SPRITE_W 4
 #define SPRITE_H 4
 
-/* Snake I style: simple solid blocks */
-static const uint8_t SPR_BLOCK[SPRITE_H * SPRITE_W] = {
-    1,1,1,1,
-    1,1,1,1,
-    1,1,1,1,
-    1,1,1,1,
-};
-
-/* Snake II style sprites (from hand-drawn bitmaps + rotations) */
-
 /* Straight segment (horizontal) — textured */
 static const uint8_t SPR_STRAIGHT_H[SPRITE_H * SPRITE_W] = {
     0,0,0,0,
@@ -338,14 +328,6 @@ static const uint8_t SPR_FOOD[SPRITE_H * SPRITE_W] = {
     0,1,0,0,
     1,0,1,0,
     0,1,0,0,
-    0,0,0,0,
-};
-
-/* Food simple: solid small square (Snake I style) */
-static const uint8_t SPR_FOOD_SIMPLE[SPRITE_H * SPRITE_W] = {
-    0,0,0,0,
-    0,1,1,0,
-    0,1,1,0,
     0,0,0,0,
 };
 

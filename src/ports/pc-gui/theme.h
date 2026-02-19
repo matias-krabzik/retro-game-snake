@@ -6,19 +6,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* --- Snake visual style --- */
-
-typedef enum {
-    STYLE_SNAKE1,   /* Solid blocks, simple food */
-    STYLE_SNAKE2,   /* Detailed sprites with corners, diamond food */
-    STYLE_COUNT
-} SnakeStyle_t;
-
-static const char *STYLE_NAMES[STYLE_COUNT] = {
-    "Snake I",
-    "Snake II"
-};
-
 /* --- LCD Color palette --- */
 /* Each palette defines the 4 colors needed for LCD simulation */
 
@@ -65,7 +52,6 @@ static const LcdPalette_t PALETTES[PALETTE_COUNT] = {
 
 typedef struct {
     int palette_idx;
-    int style_idx;
 } Theme_t;
 
 /* Build LcdColors_t from a palette index */
