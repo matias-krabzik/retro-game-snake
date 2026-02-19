@@ -8,6 +8,12 @@
 #define PI_F         3.14159265358979f
 
 static Sound sounds[SND_COUNT];
+static int current_volume = VOLUME_DEFAULT;
+
+static void apply_volume(void)
+{
+    SetMasterVolume((float)current_volume / (float)VOLUME_MAX);
+}
 
 /* --- Helpers --- */
 
@@ -141,6 +147,7 @@ void audio_init(void)
     sounds[SND_EAT]       = gen_eat();
     sounds[SND_BONUS]     = gen_bonus();
     sounds[SND_GAME_OVER] = gen_game_over();
+    apply_volume();
 }
 
 void audio_play(SoundType_t type)
@@ -156,4 +163,29 @@ void audio_shutdown(void)
         UnloadSound(sounds[i]);
     }
     CloseAudioDevice();
+}
+
+int audio_get_volume(void)
+{
+    return current_volume;
+}
+
+void audio_set_volume(int level)
+{
+    if (level < 0) level = 0;
+    if (level > VOLUME_MAX) level = VOLUME_MAX;
+    current_volume = level;
+    apply_volume();
+}
+
+int audio_volume_up(void)
+{
+    audio_set_volume(current_volume + 1);
+    return current_volume;
+}
+
+int audio_volume_down(void)
+{
+    audio_set_volume(current_volume - 1);
+    return current_volume;
 }

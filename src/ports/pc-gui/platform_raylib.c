@@ -29,7 +29,7 @@ static int window_h;
 static int lcd_offset_x;
 static int lcd_offset_y;
 
-static Theme_t current_theme = { PALETTE_GREEN, STYLE_SNAKE2 };
+static Theme_t current_theme = { PALETTE_GREEN };
 
 /* --- Theme accessors (used by main.c menu) --- */
 
@@ -154,10 +154,15 @@ static const uint8_t *get_snake2_sprite(const Game_t *game, uint16_t i)
 
 static void draw_game_frame(const Game_t *game, bool show_snake)
 {
-    SnakeStyle_t style = (SnakeStyle_t)current_theme.style_idx;
-
-    /* Score (number only) */
-    lcd_draw_number(SCORE_X, SCORE_Y, game->score);
+    /* Score: 4-digit with leading zeros (0000–9999) */
+    {
+        uint32_t s = game->score;
+        int sx = SCORE_X;
+        lcd_draw_digit(sx, SCORE_Y, (int)(s / 1000) % 10); sx += DIGIT_W + 1;
+        lcd_draw_digit(sx, SCORE_Y, (int)(s / 100) % 10);  sx += DIGIT_W + 1;
+        lcd_draw_digit(sx, SCORE_Y, (int)(s / 10) % 10);   sx += DIGIT_W + 1;
+        lcd_draw_digit(sx, SCORE_Y, (int)(s % 10));
+    }
 
     /* Bonus countdown in score bar (right-aligned): [sprite 8x4][1px][digit][digit] */
     if (game->bonus_active) {
@@ -181,11 +186,7 @@ static void draw_game_frame(const Game_t *game, bool show_snake)
     {
         int fx = ARENA_X + game->food.x * CELL_PX;
         int fy = ARENA_Y + game->food.y * CELL_PX;
-        if (style == STYLE_SNAKE1) {
-            lcd_draw_sprite(fx, fy, SPR_FOOD_SIMPLE, SPRITE_W, SPRITE_H);
-        } else {
-            lcd_draw_sprite(fx, fy, SPR_FOOD, SPRITE_W, SPRITE_H);
-        }
+        lcd_draw_sprite(fx, fy, SPR_FOOD, SPRITE_W, SPRITE_H);
     }
 
     /* Bonus (8x4 sprite, 2 cells wide) */
@@ -201,12 +202,8 @@ static void draw_game_frame(const Game_t *game, bool show_snake)
             int sx = ARENA_X + game->snake.body[i].x * CELL_PX;
             int sy = ARENA_Y + game->snake.body[i].y * CELL_PX;
 
-            if (style == STYLE_SNAKE1) {
-                lcd_draw_sprite(sx, sy, SPR_BLOCK, SPRITE_W, SPRITE_H);
-            } else {
-                lcd_draw_sprite(sx, sy, get_snake2_sprite(game, i),
-                                SPRITE_W, SPRITE_H);
-            }
+            lcd_draw_sprite(sx, sy, get_snake2_sprite(game, i),
+                            SPRITE_W, SPRITE_H);
         }
     }
 }
@@ -299,8 +296,9 @@ void platform_render_paused(const Game_t *game)
 /* Menu views */
 #define MENU_VIEW_MAIN     0
 #define MENU_VIEW_COLORS   1
-#define MENU_VIEW_VERSIONS 2
-#define MENU_VIEW_CREDITS  3
+#define MENU_VIEW_CREDITS  2
+#define MENU_VIEW_SOUND    3
+#define MENU_VIEW_SPEED    4
 
 #define MENU_ITEM_H   10
 #define MENU_PAD_X     3
@@ -316,9 +314,9 @@ void platform_render_paused(const Game_t *game)
 #define ARROW_BOX_H    4                    /* 1px pad + 2px triangle + 1px pad */
 
 static const char *MAIN_ITEMS[] = {
-    "New game", "Color", "Version", "Credits", "Exit"
+    "New game", "Color", "Speed", "Sound", "Credits", "Exit"
 };
-#define MAIN_ITEM_COUNT 5
+#define MAIN_ITEM_COUNT 6
 
 static const char *CREDITS_LINES[] = {
     "Retro Snake",
@@ -329,11 +327,93 @@ static const char *CREDITS_LINES[] = {
 };
 #define CREDITS_COUNT 5
 
+/* --- Level bar (shared by sound and speed views) --- */
+
+#define BAR_COLS    7
+#define BAR_COL_W   3
+#define BAR_COL_GAP 1
+#define BAR_BASE_H  3
+#define BAR_STEP_H  1
+#define BAR_SIGN_PAD 2
+
+static void draw_level_bar(int cx, int by, int level)
+{
+    int cols_w = BAR_COLS * BAR_COL_W + (BAR_COLS - 1) * BAR_COL_GAP;
+    int total_w = SFONT_W + BAR_SIGN_PAD + cols_w + BAR_SIGN_PAD + SFONT_W;
+    int x = cx - total_w / 2;
+
+    lcd_draw_text(x, by - SFONT_H + 1, "-");
+    x += SFONT_W + BAR_SIGN_PAD;
+
+    for (int i = 0; i < BAR_COLS; i++) {
+        int col_h = BAR_BASE_H + i * BAR_STEP_H;
+        int col_x = x + i * (BAR_COL_W + BAR_COL_GAP);
+        int col_y = by - col_h + 1;
+        if (i < level) {
+            lcd_fill_rect(col_x, col_y, BAR_COL_W, col_h);
+        } else {
+            lcd_draw_rect(col_x, col_y, BAR_COL_W, col_h);
+        }
+    }
+
+    x += cols_w + BAR_SIGN_PAD;
+    lcd_draw_text(x, by - SFONT_H + 1, "+");
+}
+
+/* --- Speed setting --- */
+
+#define SPEED_MAX     7
+#define SPEED_DEFAULT 6
+
+static int current_speed = SPEED_DEFAULT;
+
+static const uint32_t SPEED_TICK_MS[SPEED_MAX] = {
+    1000, 600, 400, 300, 200, 150, 100
+};
+
+int platform_speed_up(void)
+{
+    if (current_speed < SPEED_MAX) current_speed++;
+    return current_speed;
+}
+
+int platform_speed_down(void)
+{
+    if (current_speed > 1) current_speed--;
+    return current_speed;
+}
+
+uint32_t platform_get_tick_ms(void)
+{
+    return SPEED_TICK_MS[current_speed - 1];
+}
+
 void platform_render_menu(int view, int selected, int first_visible,
                           int scroll_px, const Theme_t *theme)
 {
     lcd_set_colors(theme_lcd_colors(theme->palette_idx));
     lcd_clear();
+
+    /* Sound / Speed view: level bar with title */
+    if (view == MENU_VIEW_SOUND || view == MENU_VIEW_SPEED) {
+        const char *title = (view == MENU_VIEW_SOUND) ? "Sound" : "Speed";
+        int level = (view == MENU_VIEW_SOUND)
+                    ? audio_get_volume() : current_speed;
+
+        lcd_draw_rect(0, 0, LCD_W, LCD_H);
+        lcd_draw_text((LCD_W - lcd_text_width(title)) / 2, 4, title);
+        lcd_draw_hline(1, 12, LCD_W - 2);
+        draw_level_bar(LCD_W / 2, 32, level);
+
+        const char *hint = "< >";
+        lcd_draw_text((LCD_W - lcd_text_width(hint)) / 2, LCD_H - SFONT_H - 3, hint);
+
+        BeginDrawing();
+        ClearBackground(PALETTES[theme->palette_idx].gap);
+        lcd_render();
+        EndDrawing();
+        return;
+    }
 
     /* Border around entire LCD */
     lcd_draw_rect(0, 0, LCD_W, LCD_H);
@@ -353,18 +433,13 @@ void platform_render_menu(int view, int selected, int first_visible,
         count = PALETTE_COUNT;
         checked = theme->palette_idx;
         break;
-    case MENU_VIEW_VERSIONS:
-        for (int i = 0; i < STYLE_COUNT; i++) items[i] = STYLE_NAMES[i];
-        count = STYLE_COUNT;
-        checked = theme->style_idx;
-        break;
     case MENU_VIEW_CREDITS:
         for (int i = 0; i < CREDITS_COUNT; i++) items[i] = CREDITS_LINES[i];
         count = CREDITS_COUNT;
         break;
     }
 
-    bool is_sub = (view == MENU_VIEW_COLORS || view == MENU_VIEW_VERSIONS);
+    bool is_sub = (view == MENU_VIEW_COLORS);
     int max_vis = count < MAX_VISIBLE_ITEMS ? count : MAX_VISIBLE_ITEMS;
 
     /* Draw visible items */

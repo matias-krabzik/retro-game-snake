@@ -40,6 +40,9 @@ make -C src/ports/pc-gui
 
 # Clean any port
 make -C src/ports/<port> clean
+
+# Run tests (no external dependencies needed)
+make -C test
 ```
 
 ## C Conventions
@@ -54,6 +57,11 @@ make -C src/ports/<port> clean
 
 - **pc port:** None (POSIX only — termios, ANSI escape codes)
 - **pc-gui port:** [Raylib](https://www.raylib.com/) 5.x (`brew install raylib`)
+
+## Workflow Rules
+
+- **All tests must pass before a task is considered complete.** Run `make -C test` and verify 0 failures before finishing any change.
+- When modifying core or port code, add or update tests to cover the change.
 
 ## Adding a New Port
 
