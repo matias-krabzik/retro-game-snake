@@ -2,6 +2,7 @@
 #include "theme.h"
 #include "sprites.h"
 #include "lcd.h"
+#include "audio.h"
 #include <raylib.h>
 #include <string.h>
 #include <stdio.h>
@@ -253,11 +254,13 @@ int platform_init(const GameConfig_t *config)
     SetTargetFPS(60);
 
     lcd_init(lcd_offset_x, lcd_offset_y, theme_lcd_colors(current_theme.palette_idx));
+    audio_init();
     return 0;
 }
 
 void platform_shutdown(void)
 {
+    audio_shutdown();
     CloseWindow();
 }
 

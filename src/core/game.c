@@ -70,6 +70,9 @@ void game_update(Game_t *game)
         return;
     }
 
+    game->evt_ate_food = false;
+    game->evt_ate_bonus = false;
+
     snake_move(&game->snake);
 
     Point_t head = snake_head(&game->snake);
@@ -105,6 +108,7 @@ void game_update(Game_t *game)
         snake_grow(&game->snake);
         game->score += 77;
         game->bonus_active = false;
+        game->evt_ate_bonus = true;
     }
 
     /* Food consumption */
@@ -113,6 +117,7 @@ void game_update(Game_t *game)
         snake_grow(&game->snake);
         game->score += 7;
         game->food_count++;
+        game->evt_ate_food = true;
         game_spawn_food(game);
 
         /* Spawn bonus every 5 normal foods */

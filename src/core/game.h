@@ -21,6 +21,8 @@ typedef struct {
     uint8_t bonus_steps;     /* ticks remaining before bonus disappears */
     uint8_t bonus_sprite;    /* bonus sprite variant (0-5) */
     bool bonus_active;       /* bonus currently on the board */
+    bool evt_ate_food;       /* set by game_update when food eaten */
+    bool evt_ate_bonus;      /* set by game_update when bonus eaten */
 } Game_t;
 
 void game_init(Game_t *game, GameConfig_t config, uint32_t seed);

@@ -2,6 +2,7 @@
 #include "../../core/game.h"
 #include "theme.h"
 #include "sprites.h"
+#include "audio.h"
 #include <raylib.h>
 #include <time.h>
 
@@ -129,15 +130,18 @@ static bool run_menu(Theme_t *theme)
                 selected = (selected - 1 + count) % count;
                 ensure_visible(&first_visible, selected, count);
                 scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
+                audio_play(SND_NAV);
                 break;
 
             case KEY_DOWN: case KEY_S:
                 selected = (selected + 1) % count;
                 ensure_visible(&first_visible, selected, count);
                 scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
+                audio_play(SND_NAV);
                 break;
 
             case KEY_ENTER: case KEY_KP_ENTER:
+                audio_play(SND_SELECT);
                 if (view == VIEW_MAIN) {
                     switch (selected) {
                     case 0: return true;   /* New game */
@@ -292,6 +296,13 @@ int main(void)
             if (tick_accumulator >= tick_interval) {
                 game_update(&game);
                 tick_accumulator -= tick_interval;
+
+                if (game.evt_ate_bonus)
+                    audio_play(SND_BONUS);
+                else if (game.evt_ate_food)
+                    audio_play(SND_EAT);
+                if (game.status == STATE_GAME_OVER)
+                    audio_play(SND_GAME_OVER);
             }
 
             platform_render(&game);
