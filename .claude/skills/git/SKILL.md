@@ -14,7 +14,7 @@ When invoked, run the following steps in order:
 2. **Get default branch name**: `git remote show origin | grep 'HEAD branch' | awk '{print $NF}'` (usually `main`)
 3. **Switch to detached HEAD**: `git checkout origin/<default-branch> --detach`
 4. **Delete ALL local branches**: `git branch | sed 's/^[* ] //' | xargs git branch -D`
-5. **Recreate default branch tracking remote**: `git checkout -b <default-branch> origin/<default-branch>`
+5. **Recreate default branch tracking remote**: `git checkout origin/<default-branch>`
 
 Report what branches were deleted and confirm you are on the latest default branch.
 

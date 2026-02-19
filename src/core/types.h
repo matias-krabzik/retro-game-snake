@@ -25,6 +25,7 @@ typedef enum {
     INPUT_LEFT,
     INPUT_RIGHT,
     INPUT_RESTART,
+    INPUT_PAUSE,
     INPUT_QUIT
 } InputEvent_t;
 
