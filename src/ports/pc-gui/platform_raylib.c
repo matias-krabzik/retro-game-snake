@@ -46,6 +46,25 @@ void platform_apply_theme(void)
 /* --- Sprite selection helpers for Snake II --- */
 
 /* Check if food is ahead of the head, in the same line, within 5 cells */
+static bool is_target_ahead(Point_t head, int dx, int dy,
+                            int tx, int ty, int bw, int bh)
+{
+    if (dx > 0 && ty == head.y) {
+        int dist = (tx - head.x + bw) % bw;
+        return dist >= 1 && dist <= 5;
+    } else if (dx < 0 && ty == head.y) {
+        int dist = (head.x - tx + bw) % bw;
+        return dist >= 1 && dist <= 5;
+    } else if (dy > 0 && tx == head.x) {
+        int dist = (ty - head.y + bh) % bh;
+        return dist >= 1 && dist <= 5;
+    } else if (dy < 0 && tx == head.x) {
+        int dist = (head.y - ty + bh) % bh;
+        return dist >= 1 && dist <= 5;
+    }
+    return false;
+}
+
 static bool is_head_eating(const Game_t *game)
 {
     const Snake_t *snake = &game->snake;
@@ -53,7 +72,6 @@ static bool is_head_eating(const Game_t *game)
 
     Point_t head = snake->body[0];
     Point_t neck = snake->body[1];
-    Point_t food = game->food;
     int bw = game->config.board_width;
     int bh = game->config.board_height;
 
@@ -62,19 +80,18 @@ static bool is_head_eating(const Game_t *game)
     if (dx > 1) dx = -1; if (dx < -1) dx = 1;
     if (dy > 1) dy = -1; if (dy < -1) dy = 1;
 
-    if (dx > 0 && food.y == head.y) {          /* facing right */
-        int dist = (food.x - head.x + bw) % bw;
-        return dist >= 1 && dist <= 5;
-    } else if (dx < 0 && food.y == head.y) {   /* facing left */
-        int dist = (head.x - food.x + bw) % bw;
-        return dist >= 1 && dist <= 5;
-    } else if (dy > 0 && food.x == head.x) {   /* facing down */
-        int dist = (food.y - head.y + bh) % bh;
-        return dist >= 1 && dist <= 5;
-    } else if (dy < 0 && food.x == head.x) {   /* facing up */
-        int dist = (head.y - food.y + bh) % bh;
-        return dist >= 1 && dist <= 5;
+    /* Check food */
+    if (is_target_ahead(head, dx, dy, game->food.x, game->food.y, bw, bh))
+        return true;
+
+    /* Check bonus (2 cells wide: bonus.x and bonus.x+1) */
+    if (game->bonus_active) {
+        if (is_target_ahead(head, dx, dy, game->bonus.x, game->bonus.y, bw, bh))
+            return true;
+        if (is_target_ahead(head, dx, dy, game->bonus.x + 1, game->bonus.y, bw, bh))
+            return true;
     }
+
     return false;
 }
 
@@ -208,32 +225,110 @@ static void draw_game_frame(const Game_t *game, bool show_snake)
     }
 }
 
-static void draw_pause_overlay(void)
-{
-    /* Centered modal box on the LCD */
-    int box_w = 78;
-    int box_h = 27;
-    int bx = (LCD_W - box_w) / 2;
-    int by = (LCD_H - box_h) / 2;
+/* Shared menu layout constants */
+#define MENU_ITEM_H   10
+#define MENU_PAD_X     3
+#define MENU_PAD_Y     2
+#define MENU_CHECK_W  (SFONT_W + 1)   /* 6px: checkmark + 1px gap */
+#define MAX_VISIBLE_ITEMS  4          /* floor((LCD_H - 2) / MENU_ITEM_H) */
 
-    /* Clear box area and draw border */
-    for (int row = by; row < by + box_h; row++) {
-        for (int col = bx; col < bx + box_w; col++) {
-            lcd_set_pixel(col, row, false);
+/* Scrollbar: filled arrow boxes with white triangles, thumb with margins */
+#define SB_W           5
+#define SB_X           (LCD_W - 1 - SB_W)  /* 78 */
+#define SB_GAP         1
+#define CONTENT_RIGHT  (SB_X - SB_GAP)     /* 77 */
+#define ARROW_BOX_H    4                    /* 1px pad + 2px triangle + 1px pad */
+
+/* Pause menu items */
+static const char *PAUSE_ITEMS[] = {
+    "Resume", "Restart", "Menu", "Exit"
+};
+#define PAUSE_ITEM_COUNT 4
+#define PAUSE_HEADER_H   9   /* 2px pad + 5px font + 2px pad */
+#define PAUSE_MAX_VIS    3   /* (LCD_H - 2 - PAUSE_HEADER_H) / MENU_ITEM_H */
+
+void platform_render_pause_menu(const Game_t *game, int selected,
+                                int first_visible)
+{
+    platform_apply_theme();
+    lcd_clear();
+    draw_game_frame(game, true);
+
+    /* Clear LCD for menu overlay */
+    lcd_clear();
+
+    /* Border */
+    lcd_draw_rect(0, 0, LCD_W, LCD_H);
+
+    /* Header: inverted bar with "PAUSED" */
+    lcd_fill_rect(1, 1, LCD_W - 2, PAUSE_HEADER_H);
+    {
+        const char *title = "PAUSED";
+        int tw = lcd_text_width(title);
+        lcd_draw_text_inv((LCD_W - tw) / 2, 1, title);
+    }
+
+    /* Items below header */
+    int items_y = 1 + PAUSE_HEADER_H;  /* 10 */
+    int max_vis = PAUSE_ITEM_COUNT < PAUSE_MAX_VIS
+                  ? PAUSE_ITEM_COUNT : PAUSE_MAX_VIS;
+
+    for (int vi = 0; vi < max_vis; vi++) {
+        int i = first_visible + vi;
+        if (i >= PAUSE_ITEM_COUNT) break;
+
+        int iy = items_y + vi * MENU_ITEM_H;
+        int tx = MENU_PAD_X;
+        int ty = iy + MENU_PAD_Y;
+
+        if (i == selected) {
+            lcd_fill_rect(2, iy + 1, CONTENT_RIGHT - 2, MENU_ITEM_H - 1);
+            lcd_set_clip(tx, iy, CONTENT_RIGHT, iy + MENU_ITEM_H);
+            lcd_draw_text_inv(tx, ty, PAUSE_ITEMS[i]);
+            lcd_clear_clip();
+        } else {
+            lcd_set_clip(tx, iy, CONTENT_RIGHT, iy + MENU_ITEM_H);
+            lcd_draw_text(tx, ty, PAUSE_ITEMS[i]);
+            lcd_clear_clip();
         }
     }
-    lcd_draw_rect(bx, by, box_w, box_h);
 
-    /* "PAUSED" centered */
-    const char *t1 = "PAUSED";
-    lcd_draw_text((LCD_W - lcd_text_width(t1)) / 2, by + 2, t1);
+    /* Scrollbar */
+    {
+        int sb_top = items_y;
+        int sb_bot = LCD_H - 1;
+        int box_top_y = sb_top;
+        int box_bot_y = sb_bot - ARROW_BOX_H;
 
-    /* Options */
-    const char *t2 = "ENTER:PLAY";
-    lcd_draw_text((LCD_W - lcd_text_width(t2)) / 2, by + 10, t2);
+        lcd_fill_rect(SB_X, box_top_y, SB_W, ARROW_BOX_H);
+        lcd_set_pixel(SB_X + 2, box_top_y + 1, false);
+        lcd_set_pixel(SB_X + 1, box_top_y + 2, false);
+        lcd_set_pixel(SB_X + 2, box_top_y + 2, false);
+        lcd_set_pixel(SB_X + 3, box_top_y + 2, false);
 
-    const char *t3 = "R:RST M:MENU";
-    lcd_draw_text((LCD_W - lcd_text_width(t3)) / 2, by + 18, t3);
+        lcd_fill_rect(SB_X, box_bot_y, SB_W, ARROW_BOX_H);
+        lcd_set_pixel(SB_X + 1, box_bot_y + 1, false);
+        lcd_set_pixel(SB_X + 2, box_bot_y + 1, false);
+        lcd_set_pixel(SB_X + 3, box_bot_y + 1, false);
+        lcd_set_pixel(SB_X + 2, box_bot_y + 2, false);
+
+        if (PAUSE_ITEM_COUNT > PAUSE_MAX_VIS) {
+            int track_y = box_top_y + ARROW_BOX_H + 1;
+            int track_h = box_bot_y - 1 - track_y;
+            int thumb_h = track_h * PAUSE_MAX_VIS / PAUSE_ITEM_COUNT;
+            if (thumb_h < 4) thumb_h = 4;
+            int thumb_y = track_y;
+            if (PAUSE_ITEM_COUNT > 1)
+                thumb_y = track_y + (track_h - thumb_h) * selected
+                          / (PAUSE_ITEM_COUNT - 1);
+            lcd_fill_rect(SB_X + 1, thumb_y, SB_W - 2, thumb_h);
+        }
+    }
+
+    BeginDrawing();
+    ClearBackground(PALETTES[current_theme.palette_idx].gap);
+    lcd_render();
+    EndDrawing();
 }
 
 /* --- Platform interface --- */
@@ -282,15 +377,8 @@ void platform_render(const Game_t *game)
 
 void platform_render_paused(const Game_t *game)
 {
-    platform_apply_theme();
-    lcd_clear();
-    draw_game_frame(game, true);
-    draw_pause_overlay();
-
-    BeginDrawing();
-    ClearBackground(PALETTES[current_theme.palette_idx].gap);
-    lcd_render();
-    EndDrawing();
+    /* Legacy — kept for interface, but pause now uses platform_render_pause_menu */
+    platform_render_pause_menu(game, 0, 0);
 }
 
 /* Menu views */
@@ -299,19 +387,6 @@ void platform_render_paused(const Game_t *game)
 #define MENU_VIEW_CREDITS  2
 #define MENU_VIEW_SOUND    3
 #define MENU_VIEW_SPEED    4
-
-#define MENU_ITEM_H   10
-#define MENU_PAD_X     3
-#define MENU_PAD_Y     2
-#define MENU_CHECK_W  (SFONT_W + 1)   /* 6px: checkmark + 1px gap */
-#define MAX_VISIBLE_ITEMS  4          /* floor((LCD_H - 2) / MENU_ITEM_H) */
-
-/* Scrollbar: filled arrow boxes with white triangles, thumb with margins */
-#define SB_W           5
-#define SB_X           (LCD_W - 1 - SB_W)  /* 78 */
-#define SB_GAP         1
-#define CONTENT_RIGHT  (SB_X - SB_GAP)     /* 77 */
-#define ARROW_BOX_H    4                    /* 1px pad + 2px triangle + 1px pad */
 
 static const char *MAIN_ITEMS[] = {
     "New game", "Color", "Speed", "Sound", "Credits", "Exit"
@@ -418,6 +493,17 @@ void platform_render_menu(int view, int selected, int first_visible,
     /* Border around entire LCD */
     lcd_draw_rect(0, 0, LCD_W, LCD_H);
 
+    /* Header for main view */
+    bool has_header = (view == MENU_VIEW_MAIN);
+    int items_top = 1;
+    if (has_header) {
+        lcd_fill_rect(1, 1, LCD_W - 2, PAUSE_HEADER_H);
+        const char *htitle = "Snake II";
+        int htw = lcd_text_width(htitle);
+        lcd_draw_text_inv((LCD_W - htw) / 2, 1, htitle);
+        items_top = 1 + PAUSE_HEADER_H;
+    }
+
     /* Determine items and checked index for current view */
     const char *items[16];
     int count = 0;
@@ -440,14 +526,16 @@ void platform_render_menu(int view, int selected, int first_visible,
     }
 
     bool is_sub = (view == MENU_VIEW_COLORS);
-    int max_vis = count < MAX_VISIBLE_ITEMS ? count : MAX_VISIBLE_ITEMS;
+    int avail_h = LCD_H - 1 - items_top;  /* pixels available for items */
+    int max_fit = avail_h / MENU_ITEM_H;
+    int max_vis = count < max_fit ? count : max_fit;
 
     /* Draw visible items */
     for (int vi = 0; vi < max_vis; vi++) {
         int i = first_visible + vi;
         if (i >= count) break;
 
-        int iy = 1 + vi * MENU_ITEM_H;
+        int iy = items_top + vi * MENU_ITEM_H;
         int tx = MENU_PAD_X + (is_sub ? MENU_CHECK_W : 0);
         int ty = iy + MENU_PAD_Y;
 
@@ -477,8 +565,8 @@ void platform_render_menu(int view, int selected, int first_visible,
 
     /* Scrollbar: filled boxes with white triangles, thumb between them */
     {
-        int box_top_y = 1;
-        int box_bot_y = LCD_H - 1 - ARROW_BOX_H;  /* 43 */
+        int box_top_y = items_top;
+        int box_bot_y = LCD_H - 1 - ARROW_BOX_H;
 
         /* Up arrow box: filled rect, then carve white triangle */
         lcd_fill_rect(SB_X, box_top_y, SB_W, ARROW_BOX_H);
@@ -494,11 +582,11 @@ void platform_render_menu(int view, int selected, int first_visible,
         lcd_set_pixel(SB_X + 3, box_bot_y + 1, false);  /* base R */
         lcd_set_pixel(SB_X + 2, box_bot_y + 2, false);  /* tip */
 
-        if (count > MAX_VISIBLE_ITEMS) {
+        if (count > max_vis) {
             /* Active: thumb with 1px side margins, between arrow boxes */
-            int track_y = box_top_y + ARROW_BOX_H + 1;  /* 6 */
-            int track_h = box_bot_y - 1 - track_y;      /* 36 */
-            int thumb_h = track_h * MAX_VISIBLE_ITEMS / count;
+            int track_y = box_top_y + ARROW_BOX_H + 1;
+            int track_h = box_bot_y - 1 - track_y;
+            int thumb_h = track_h * max_vis / count;
             if (thumb_h < 4) thumb_h = 4;
             int thumb_y = track_y;
             if (count > 1)

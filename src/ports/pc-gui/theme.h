@@ -27,24 +27,24 @@ enum {
 static const LcdPalette_t PALETTES[PALETTE_COUNT] = {
     {
         "Green",
-        { 199, 240, 216, 255 },  /* backlight: #c7f0d8 */
-        {  67,  82,  61, 255 },  /* pixel on:  #43523d */
-        { 185, 220, 199, 255 },  /* ghost:     slightly darker than backlight */
-        { 170, 204, 182, 255 },  /* gap:       LCD mask between pixels */
+        { 156, 189, 108, 255 },  /* backlight: bright Nokia green */
+        {  15,  40,   8, 255 },  /* pixel on:  deep dark green */
+        { 132, 164,  88, 255 },  /* ghost:     darker than backlight */
+        { 120, 150,  80, 255 },  /* gap:       LCD mask between pixels */
     },
     {
         "Grey",
-        { 195, 195, 185, 255 },  /* backlight */
-        {  40,  40,  40, 255 },  /* pixel on */
-        { 182, 182, 172, 255 },  /* ghost */
-        { 168, 168, 158, 255 },  /* gap */
+        { 180, 185, 175, 255 },  /* backlight: cool grey LCD */
+        {  20,  22,  18, 255 },  /* pixel on:  near black */
+        { 152, 158, 148, 255 },  /* ghost:     darker than backlight */
+        { 138, 144, 134, 255 },  /* gap:       LCD mask */
     },
     {
         "Amber",
-        { 255, 200, 100, 255 },  /* backlight */
-        {  90,  40,   0, 255 },  /* pixel on */
-        { 240, 185,  90, 255 },  /* ghost */
-        { 220, 170,  80, 255 },  /* gap */
+        { 230, 168,  50, 255 },  /* backlight: warm amber LCD */
+        {  60,  20,   0, 255 },  /* pixel on:  deep brown */
+        { 198, 142,  40, 255 },  /* ghost:     darker than backlight */
+        { 180, 128,  32, 255 },  /* gap:       LCD mask */
     },
 };
 

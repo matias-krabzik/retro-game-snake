@@ -10,7 +10,8 @@
 extern Theme_t *platform_get_theme(void);
 extern void platform_render_menu(int view, int selected, int first_visible,
                                  int scroll_px, const Theme_t *theme);
-extern void platform_render_paused(const Game_t *game);
+extern void platform_render_pause_menu(const Game_t *game, int selected,
+                                       int first_visible);
 extern int platform_speed_up(void);
 extern int platform_speed_down(void);
 extern uint32_t platform_get_tick_ms(void);
@@ -23,7 +24,8 @@ extern uint32_t platform_get_tick_ms(void);
 #define VIEW_SPEED    4
 
 /* Layout */
-#define MAX_VISIBLE          4    /* items that fit on LCD */
+#define MAX_VISIBLE          4    /* items that fit on LCD (no header) */
+#define MAX_VISIBLE_HEADER   3    /* items that fit with header bar */
 
 /* Scroll constants */
 #define SCROLL_PAUSE_FRAMES  60   /* 1 second at 60 fps */
@@ -73,9 +75,15 @@ static int visible_text_w(int view)
         ? SUBMENU_TEXT_AREA_W : MENU_TEXT_AREA_W;
 }
 
-static void ensure_visible(int *first_visible, int selected, int count)
+static int view_max_visible(int view)
 {
-    int max_vis = count < MAX_VISIBLE ? count : MAX_VISIBLE;
+    return (view == VIEW_MAIN) ? MAX_VISIBLE_HEADER : MAX_VISIBLE;
+}
+
+static void ensure_visible(int *first_visible, int selected, int count,
+                           int cap)
+{
+    int max_vis = count < cap ? count : cap;
     if (selected < *first_visible)
         *first_visible = selected;
     else if (selected >= *first_visible + max_vis)
@@ -150,7 +158,8 @@ static bool run_menu(Theme_t *theme)
                     selected = ret_idx;
                     first_visible = 0;
                     ensure_visible(&first_visible, selected,
-                                   item_count(view));
+                                   item_count(view),
+                                   view_max_visible(view));
                     scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                     break;
                 }
@@ -163,14 +172,16 @@ static bool run_menu(Theme_t *theme)
             switch (key) {
             case KEY_UP: case KEY_W:
                 selected = (selected - 1 + count) % count;
-                ensure_visible(&first_visible, selected, count);
+                ensure_visible(&first_visible, selected, count,
+                                view_max_visible(view));
                 scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                 audio_play(SND_NAV);
                 break;
 
             case KEY_DOWN: case KEY_S:
                 selected = (selected + 1) % count;
-                ensure_visible(&first_visible, selected, count);
+                ensure_visible(&first_visible, selected, count,
+                                view_max_visible(view));
                 scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                 audio_play(SND_NAV);
                 break;
@@ -185,7 +196,8 @@ static bool run_menu(Theme_t *theme)
                         selected = theme->palette_idx;
                         first_visible = 0;
                         ensure_visible(&first_visible, selected,
-                                       item_count(view));
+                                       item_count(view),
+                                       view_max_visible(view));
                         scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                         break;
                     case 2:
@@ -214,7 +226,8 @@ static bool run_menu(Theme_t *theme)
                     selected = 4;
                     first_visible = 0;
                     ensure_visible(&first_visible, selected,
-                                   item_count(view));
+                                   item_count(view),
+                                   view_max_visible(view));
                     scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                 } else {
                     /* Submenu: select option and go back */
@@ -223,7 +236,8 @@ static bool run_menu(Theme_t *theme)
                     selected = 1;
                     first_visible = 0;
                     ensure_visible(&first_visible, selected,
-                                   item_count(view));
+                                   item_count(view),
+                                   view_max_visible(view));
                     scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                 }
                 break;
@@ -238,7 +252,8 @@ static bool run_menu(Theme_t *theme)
                     }
                     first_visible = 0;
                     ensure_visible(&first_visible, selected,
-                                   item_count(view));
+                                   item_count(view),
+                                   view_max_visible(view));
                     scroll_px = 0; scroll_timer = 0; scrolling_fwd = false;
                 } else {
                     return false;  /* quit */
@@ -299,24 +314,54 @@ int main(void)
                 break;
             }
 
-            /* Pause modal */
+            /* Pause menu: Resume(0), Restart(1), Menu(2), Exit(3) */
             if (input == INPUT_PAUSE) {
+                int psel = 0, pfv = 0;
                 bool paused = true;
+
                 while (paused && running) {
-                    platform_render_paused(&game);
-                    InputEvent_t pi = platform_get_input();
-                    if (pi == INPUT_PAUSE) {
-                        paused = false;
-                    } else if (pi == INPUT_RESTART) {
-                        paused = false;
-                        game_init(&game, config, (uint32_t)time(NULL));
-                        tick_accumulator = 0.0;
-                    } else if (pi == INPUT_QUIT) {
-                        running = false;
-                    } else if (IsKeyPressed(KEY_M)) {
-                        paused = false;
-                        show_menu = true;
-                        game.status = STATE_GAME_OVER; /* exit game loop */
+                    platform_render_pause_menu(&game, psel, pfv);
+
+                    int key;
+                    while ((key = GetKeyPressed()) != 0) {
+                        switch (key) {
+                        case KEY_UP: case KEY_W:
+                            psel = (psel - 1 + 4) % 4;
+                            if (psel < pfv) pfv = psel;
+                            else if (psel >= pfv + 3) pfv = psel - 2;
+                            audio_play(SND_NAV);
+                            break;
+                        case KEY_DOWN: case KEY_S:
+                            psel = (psel + 1) % 4;
+                            if (psel < pfv) pfv = psel;
+                            else if (psel >= pfv + 3) pfv = psel - 2;
+                            audio_play(SND_NAV);
+                            break;
+                        case KEY_ENTER: case KEY_KP_ENTER:
+                            audio_play(SND_SELECT);
+                            switch (psel) {
+                            case 0: /* Resume */
+                                paused = false;
+                                break;
+                            case 1: /* Restart */
+                                paused = false;
+                                game_init(&game, config, (uint32_t)time(NULL));
+                                tick_accumulator = 0.0;
+                                break;
+                            case 2: /* Menu */
+                                paused = false;
+                                show_menu = true;
+                                game.status = STATE_GAME_OVER;
+                                break;
+                            case 3: /* Exit */
+                                running = false;
+                                break;
+                            }
+                            break;
+                        case KEY_ESCAPE:
+                            paused = false; /* same as Resume */
+                            break;
+                        }
                     }
                 }
                 if (!running || show_menu) break;
