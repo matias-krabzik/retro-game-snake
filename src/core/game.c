@@ -17,6 +17,9 @@ void game_init(Game_t *game, GameConfig_t config, uint32_t seed)
     game->score = 0;
     game->status = STATE_PLAYING;
     game->rng_state = seed ? seed : 1;
+    game->food_count = 0;
+    game->bonus_active = false;
+    game->bonus_steps = 0;
 
     Point_t start = {
         .x = (int16_t)(config.board_width / 2),
@@ -39,6 +42,26 @@ void game_spawn_food(Game_t *game)
     } while (snake_occupies(&game->snake, candidate));
 
     game->food = candidate;
+}
+
+void game_spawn_bonus(Game_t *game)
+{
+    uint16_t w = game->config.board_width;
+    uint16_t h = game->config.board_height;
+    Point_t candidate;
+
+    do {
+        candidate.x = (int16_t)(rng_next(&game->rng_state) % (w - 1));
+        candidate.y = (int16_t)(rng_next(&game->rng_state) % h);
+    } while (snake_occupies(&game->snake, candidate) ||
+             snake_occupies(&game->snake, (Point_t){ (int16_t)(candidate.x + 1), candidate.y }) ||
+             (candidate.x == game->food.x && candidate.y == game->food.y) ||
+             (candidate.x + 1 == game->food.x && candidate.y == game->food.y));
+
+    game->bonus = candidate;
+    game->bonus_active = true;
+    game->bonus_steps = 20;
+    game->bonus_sprite = (uint8_t)(rng_next(&game->rng_state) % 6);
 }
 
 void game_update(Game_t *game)
@@ -64,12 +87,38 @@ void game_update(Game_t *game)
         return;
     }
 
+    /* Bonus countdown */
+    if (game->bonus_active) {
+        if (game->bonus_steps > 0) {
+            game->bonus_steps--;
+        }
+        if (game->bonus_steps == 0) {
+            game->bonus_active = false;
+        }
+    }
+
+    /* Bonus consumption (2 cells wide) */
+    if (game->bonus_active &&
+        head.y == game->bonus.y &&
+        (head.x == game->bonus.x || head.x == game->bonus.x + 1)) {
+        game->snake.fat[0] = true;
+        snake_grow(&game->snake);
+        game->score += 77;
+        game->bonus_active = false;
+    }
+
     /* Food consumption */
     if (head.x == game->food.x && head.y == game->food.y) {
         game->snake.fat[0] = true;
         snake_grow(&game->snake);
-        game->score += 10;
+        game->score += 7;
+        game->food_count++;
         game_spawn_food(game);
+
+        /* Spawn bonus every 5 normal foods */
+        if (game->food_count % 5 == 0 && !game->bonus_active) {
+            game_spawn_bonus(game);
+        }
     }
 }
 

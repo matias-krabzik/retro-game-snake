@@ -45,6 +45,10 @@ void lcd_draw_sprite_inv(int x, int y, const uint8_t *data, int w, int h);
 /* Invert a rectangular region (for Nokia-style selection bars) */
 void lcd_invert_rect(int x, int y, int w, int h);
 
+/* Clipping: restrict pixel writes to a sub-region */
+void lcd_set_clip(int x0, int y0, int x1, int y1);
+void lcd_clear_clip(void);
+
 /* Render the framebuffer to screen via Raylib */
 void lcd_render(void);
 

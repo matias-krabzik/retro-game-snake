@@ -5,6 +5,8 @@ void snake_init(Snake_t *snake, Point_t start, uint16_t initial_length, Directio
 {
     snake->direction = dir;
     snake->length = initial_length;
+    snake->dir_buf_len = 0;
+    snake->grow_pending = 0;
     memset(snake->fat, 0, sizeof(snake->fat));
 
     for (uint16_t i = 0; i < initial_length; i++) {
@@ -15,6 +17,20 @@ void snake_init(Snake_t *snake, Point_t start, uint16_t initial_length, Directio
 
 void snake_move(Snake_t *snake)
 {
+    /* Apply one buffered direction per tick */
+    if (snake->dir_buf_len > 0) {
+        snake->direction = snake->dir_buf[0];
+        /* Shift buffer down */
+        snake->dir_buf[0] = snake->dir_buf[1];
+        snake->dir_buf_len--;
+    }
+
+    /* Grow: extend length before shifting so the tail stays in place */
+    if (snake->grow_pending > 0 && snake->length < SNAKE_MAX_LENGTH) {
+        snake->length++;
+        snake->grow_pending--;
+    }
+
     /* Shift body segments and fat flags */
     for (uint16_t i = snake->length - 1; i > 0; i--) {
         snake->body[i] = snake->body[i - 1];
@@ -33,11 +49,7 @@ void snake_move(Snake_t *snake)
 
 void snake_grow(Snake_t *snake)
 {
-    if (snake->length < SNAKE_MAX_LENGTH) {
-        /* Duplicate tail — next move will naturally separate it */
-        snake->body[snake->length] = snake->body[snake->length - 1];
-        snake->length++;
-    }
+    snake->grow_pending++;
 }
 
 bool snake_collides_self(const Snake_t *snake)
@@ -66,14 +78,26 @@ Point_t snake_head(const Snake_t *snake)
     return snake->body[0];
 }
 
+static bool directions_opposite(Direction_t a, Direction_t b)
+{
+    return (a == DIR_UP    && b == DIR_DOWN)  ||
+           (a == DIR_DOWN  && b == DIR_UP)    ||
+           (a == DIR_LEFT  && b == DIR_RIGHT) ||
+           (a == DIR_RIGHT && b == DIR_LEFT);
+}
+
 void snake_set_direction(Snake_t *snake, Direction_t dir)
 {
-    /* Prevent 180-degree reversal */
-    if ((snake->direction == DIR_UP    && dir == DIR_DOWN)  ||
-        (snake->direction == DIR_DOWN  && dir == DIR_UP)    ||
-        (snake->direction == DIR_LEFT  && dir == DIR_RIGHT) ||
-        (snake->direction == DIR_RIGHT && dir == DIR_LEFT)) {
+    /* Validate against the last buffered direction (or current if buffer empty) */
+    Direction_t ref = snake->dir_buf_len > 0
+                    ? snake->dir_buf[snake->dir_buf_len - 1]
+                    : snake->direction;
+
+    if (dir == ref || directions_opposite(ref, dir)) {
         return;
     }
-    snake->direction = dir;
+
+    if (snake->dir_buf_len < 2) {
+        snake->dir_buf[snake->dir_buf_len++] = dir;
+    }
 }

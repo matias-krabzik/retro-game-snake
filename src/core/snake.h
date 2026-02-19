@@ -8,6 +8,9 @@ typedef struct {
     bool fat[SNAKE_MAX_LENGTH];   /* segment has food bulge */
     uint16_t length;
     Direction_t direction;
+    Direction_t dir_buf[2];       /* buffered direction inputs (max 2) */
+    uint8_t dir_buf_len;          /* number of buffered directions */
+    uint8_t grow_pending;         /* deferred growth: tail stays on next move(s) */
 } Snake_t;
 
 void snake_init(Snake_t *snake, Point_t start, uint16_t initial_length, Direction_t dir);

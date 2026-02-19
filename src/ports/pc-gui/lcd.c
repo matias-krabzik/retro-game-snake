@@ -5,6 +5,8 @@ static uint8_t framebuffer[LCD_H][LCD_W];
 static int lcd_ox;
 static int lcd_oy;
 static LcdColors_t lcd_colors;
+static int clip_x0, clip_y0;
+static int clip_x1 = LCD_W, clip_y1 = LCD_H;
 
 void lcd_init(int offset_x, int offset_y, LcdColors_t colors)
 {
@@ -26,16 +28,32 @@ void lcd_clear(void)
 
 void lcd_set_pixel(int x, int y, bool on)
 {
-    if (x >= 0 && x < LCD_W && y >= 0 && y < LCD_H) {
+    if (x >= clip_x0 && x < clip_x1 && y >= clip_y0 && y < clip_y1) {
         framebuffer[y][x] = on ? 1 : 0;
     }
 }
 
 void lcd_set_pixel_inv(int x, int y)
 {
-    if (x >= 0 && x < LCD_W && y >= 0 && y < LCD_H) {
+    if (x >= clip_x0 && x < clip_x1 && y >= clip_y0 && y < clip_y1) {
         framebuffer[y][x] ^= 1;
     }
+}
+
+void lcd_set_clip(int x0, int y0, int x1, int y1)
+{
+    clip_x0 = x0 < 0 ? 0 : x0;
+    clip_y0 = y0 < 0 ? 0 : y0;
+    clip_x1 = x1 > LCD_W ? LCD_W : x1;
+    clip_y1 = y1 > LCD_H ? LCD_H : y1;
+}
+
+void lcd_clear_clip(void)
+{
+    clip_x0 = 0;
+    clip_y0 = 0;
+    clip_x1 = LCD_W;
+    clip_y1 = LCD_H;
 }
 
 void lcd_fill_rect(int x, int y, int w, int h)
