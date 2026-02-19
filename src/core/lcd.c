@@ -1,24 +1,13 @@
 #include "lcd.h"
 #include <string.h>
 
-static uint8_t framebuffer[LCD_H][LCD_W];
-static int lcd_ox;
-static int lcd_oy;
-static LcdColors_t lcd_colors;
+static uint8_t framebuffer[LCD_HEIGHT][LCD_WIDTH];
 static int clip_x0, clip_y0;
-static int clip_x1 = LCD_W, clip_y1 = LCD_H;
+static int clip_x1 = LCD_WIDTH, clip_y1 = LCD_HEIGHT;
 
-void lcd_init(int offset_x, int offset_y, LcdColors_t colors)
+const uint8_t (*lcd_get_framebuffer(void))[LCD_WIDTH]
 {
-    lcd_ox = offset_x;
-    lcd_oy = offset_y;
-    lcd_colors = colors;
-    lcd_clear();
-}
-
-void lcd_set_colors(LcdColors_t colors)
-{
-    lcd_colors = colors;
+    return (const uint8_t (*)[LCD_WIDTH])framebuffer;
 }
 
 void lcd_clear(void)
@@ -44,16 +33,16 @@ void lcd_set_clip(int x0, int y0, int x1, int y1)
 {
     clip_x0 = x0 < 0 ? 0 : x0;
     clip_y0 = y0 < 0 ? 0 : y0;
-    clip_x1 = x1 > LCD_W ? LCD_W : x1;
-    clip_y1 = y1 > LCD_H ? LCD_H : y1;
+    clip_x1 = x1 > LCD_WIDTH ? LCD_WIDTH : x1;
+    clip_y1 = y1 > LCD_HEIGHT ? LCD_HEIGHT : y1;
 }
 
 void lcd_clear_clip(void)
 {
     clip_x0 = 0;
     clip_y0 = 0;
-    clip_x1 = LCD_W;
-    clip_y1 = LCD_H;
+    clip_x1 = LCD_WIDTH;
+    clip_y1 = LCD_HEIGHT;
 }
 
 void lcd_fill_rect(int x, int y, int w, int h)
@@ -114,24 +103,6 @@ void lcd_invert_rect(int x, int y, int w, int h)
     for (int row = y; row < y + h; row++) {
         for (int col = x; col < x + w; col++) {
             lcd_set_pixel_inv(col, row);
-        }
-    }
-}
-
-void lcd_render(void)
-{
-    /* Fill entire LCD area with gap color (grid lines between pixels) */
-    DrawRectangle(lcd_ox, lcd_oy,
-                  LCD_W * PIXEL_CELL, LCD_H * PIXEL_CELL,
-                  lcd_colors.gap);
-
-    /* Draw each pixel */
-    for (int y = 0; y < LCD_H; y++) {
-        for (int x = 0; x < LCD_W; x++) {
-            int sx = lcd_ox + x * PIXEL_CELL;
-            int sy = lcd_oy + y * PIXEL_CELL;
-            Color c = framebuffer[y][x] ? lcd_colors.pixel_on : lcd_colors.pixel_off;
-            DrawRectangle(sx, sy, PIXEL_SCALE, PIXEL_SCALE, c);
         }
     }
 }

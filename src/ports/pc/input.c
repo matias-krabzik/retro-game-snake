@@ -30,37 +30,35 @@ void input_disable_raw_mode(void)
     fcntl(STDIN_FILENO, F_SETFL, flags & ~O_NONBLOCK);
 }
 
-InputEvent_t input_poll(void)
+UiInput_t input_poll(void)
 {
     char c;
-    if (read(STDIN_FILENO, &c, 1) != 1) {
-        return INPUT_NONE;
-    }
+    if (read(STDIN_FILENO, &c, 1) != 1)
+        return UI_INPUT_NONE;
 
-    if (c == 'q' || c == 'Q') {
-        return INPUT_QUIT;
-    }
-
-    /* WASD keys */
-    if (c == 'w' || c == 'W') return INPUT_UP;
-    if (c == 's' || c == 'S') return INPUT_DOWN;
-    if (c == 'a' || c == 'A') return INPUT_LEFT;
-    if (c == 'd' || c == 'D') return INPUT_RIGHT;
+    if (c == 'q' || c == 'Q') return UI_INPUT_QUIT;
+    if (c == 'w' || c == 'W') return UI_INPUT_UP;
+    if (c == 's' || c == 'S') return UI_INPUT_DOWN;
+    if (c == 'a' || c == 'A') return UI_INPUT_LEFT;
+    if (c == 'd' || c == 'D') return UI_INPUT_RIGHT;
+    if (c == '\n' || c == '\r') return UI_INPUT_CONFIRM;
 
     /* Arrow keys: ESC [ {A,B,C,D} */
     if (c == '\x1b') {
         char seq[2];
-        if (read(STDIN_FILENO, &seq[0], 1) != 1) return INPUT_NONE;
-        if (read(STDIN_FILENO, &seq[1], 1) != 1) return INPUT_NONE;
+        if (read(STDIN_FILENO, &seq[0], 1) != 1)
+            return UI_INPUT_BACK;  /* standalone ESC = back */
+        if (read(STDIN_FILENO, &seq[1], 1) != 1)
+            return UI_INPUT_NONE;
         if (seq[0] == '[') {
             switch (seq[1]) {
-            case 'A': return INPUT_UP;
-            case 'B': return INPUT_DOWN;
-            case 'C': return INPUT_RIGHT;
-            case 'D': return INPUT_LEFT;
+            case 'A': return UI_INPUT_UP;
+            case 'B': return UI_INPUT_DOWN;
+            case 'C': return UI_INPUT_RIGHT;
+            case 'D': return UI_INPUT_LEFT;
             }
         }
     }
 
-    return INPUT_NONE;
+    return UI_INPUT_NONE;
 }
