@@ -1,15 +1,16 @@
 /*
- * Sprite/font tests — include lcd.c for framebuffer access,
- * then sprites.h for the inline draw/measure helpers.
+ * Sprite/font tests — tests core sprites and text helpers.
+ * Uses lcd_get_framebuffer() to inspect pixel state.
  */
-#include "../../test.h"
-#include "../../../src/ports/pc-gui/lcd.c"
-#include "../../../src/ports/pc-gui/sprites.h"
+#include "../test.h"
+#include "../../src/core/lcd.h"
+#include "../../src/core/sprites.h"
 
 /* Helper: read a pixel from the framebuffer */
 static int px(int x, int y)
 {
-    return framebuffer[y][x];
+    const uint8_t (*fb)[LCD_WIDTH] = lcd_get_framebuffer();
+    return fb[y][x];
 }
 
 /* --- lcd_text_width --- */
@@ -21,19 +22,16 @@ static void test_text_width_empty(void)
 
 static void test_text_width_single_char(void)
 {
-    /* One char = 5px (SFONT_W), no trailing space */
     ASSERT_EQ(lcd_text_width("A"), SFONT_W);
 }
 
 static void test_text_width_two_chars(void)
 {
-    /* Two chars = 5 + 1 + 5 = 11 */
     ASSERT_EQ(lcd_text_width("AB"), SFONT_W * 2 + 1);
 }
 
 static void test_text_width_with_spaces(void)
 {
-    /* "A B" = 3 chars = 5+1+5+1+5 = 17 */
     ASSERT_EQ(lcd_text_width("A B"), SFONT_W * 3 + 2);
 }
 
@@ -57,7 +55,6 @@ static void test_draw_text_offset(void)
     lcd_clear();
     lcd_clear_clip();
     lcd_draw_text(10, 5, "A");
-    /* Same pattern but offset */
     ASSERT_EQ(px(10, 5), 0);
     ASSERT_EQ(px(11, 5), 1);
     ASSERT_EQ(px(12, 5), 1);
@@ -82,9 +79,9 @@ static void test_draw_text_inv(void)
 {
     lcd_clear();
     lcd_clear_clip();
-    lcd_fill_rect(0, 0, SFONT_W, SFONT_H);  /* all on */
+    lcd_fill_rect(0, 0, SFONT_W, SFONT_H);
     lcd_draw_text_inv(0, 0, "I");
-    /* 'I' glyph row 0: 0,1,1,1,0 → inverted: those pixels turn off */
+    /* 'I' glyph row 0: 0,1,1,1,0 -> inverted: those pixels turn off */
     ASSERT_EQ(px(1, 0), 0);
     ASSERT_EQ(px(2, 0), 0);
     ASSERT_EQ(px(3, 0), 0);
@@ -114,9 +111,9 @@ static void test_draw_digit_invalid(void)
 {
     lcd_clear();
     lcd_clear_clip();
-    lcd_draw_digit(0, 0, -1);  /* should not crash */
-    lcd_draw_digit(0, 0, 10);  /* should not crash */
-    ASSERT_EQ(px(0, 0), 0);    /* nothing drawn */
+    lcd_draw_digit(0, 0, -1);
+    lcd_draw_digit(0, 0, 10);
+    ASSERT_EQ(px(0, 0), 0);
 }
 
 /* --- lcd_draw_number --- */
@@ -126,7 +123,6 @@ static void test_draw_number_zero(void)
     lcd_clear();
     lcd_clear_clip();
     lcd_draw_number(0, 0, 0);
-    /* Should draw digit '0' */
     ASSERT_EQ(px(0, 0), 1);
 }
 
@@ -148,7 +144,6 @@ static void test_draw_number_multi_digit(void)
 
 static void test_font_uppercase_range(void)
 {
-    /* Verify A-Z glyphs exist and have non-zero pixels */
     for (char c = 'A'; c <= 'Z'; c++) {
         int idx = c - SFONT_FIRST;
         int sum = 0;
