@@ -17,7 +17,6 @@ src/ports/pc-gui/Snake.app/
 src/ports/pc-gui/Snake.iconset/
 src/ports/pc-gui/Snake.icns
 downloads/Snake.app/
-downloads/Snake.app.zip
 
 # macOS
 .DS_Store
