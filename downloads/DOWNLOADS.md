@@ -12,7 +12,11 @@ Pre-built binaries for Retro Snake. No dependencies required — just download a
 
 1. Download `Snake.app.zip`
 2. Unzip and move `Snake.app` to your Applications folder (or anywhere you like)
-3. On first launch, macOS may block it — right-click the app and select **Open**, then click **Open** again in the dialog
+3. Before first launch, remove the quarantine attribute:
+   ```bash
+   xattr -cr ~/Downloads/Snake.app
+   ```
+4. Double-click to play. If macOS still blocks it, right-click the app and select **Open**, then click **Open** again in the dialog
 
 ## Building from source
 
