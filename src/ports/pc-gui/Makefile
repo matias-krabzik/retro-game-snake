@@ -65,7 +65,8 @@ bundle: $(TARGET)
   <true/>\n\
 </dict>\n\
 </plist>\n' > $(APP_NAME)/Contents/Info.plist
-	cd $(DIST_DIR) && zip -r Snake.app.zip Snake.app
+	codesign --force --deep --sign - $(APP_NAME)
+	cd $(DIST_DIR) && rm -f Snake.app.zip && zip -r Snake.app.zip Snake.app
 
 clean:
 	rm -rf $(TARGET) $(APP_NAME) $(ICONSET_DIR) $(ICNS_FILE)
