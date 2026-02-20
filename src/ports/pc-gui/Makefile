@@ -21,10 +21,12 @@ $(TARGET): $(SRCS)
 ICON_PNG    = ../../../public/icon.png
 ICONSET_DIR = Snake.iconset
 ICNS_FILE   = Snake.icns
-APP_NAME    = Snake.app
+DIST_DIR    = ../../../downloads
+APP_NAME    = $(DIST_DIR)/Snake.app
 
 bundle: $(TARGET)
 	rm -rf $(ICONSET_DIR) $(APP_NAME)
+	mkdir -p $(DIST_DIR)
 	mkdir -p $(ICONSET_DIR)
 	sips -z 16 16     $(ICON_PNG) --out $(ICONSET_DIR)/icon_16x16.png
 	sips -z 32 32     $(ICON_PNG) --out $(ICONSET_DIR)/icon_16x16@2x.png
@@ -63,6 +65,7 @@ bundle: $(TARGET)
   <true/>\n\
 </dict>\n\
 </plist>\n' > $(APP_NAME)/Contents/Info.plist
+	cd $(DIST_DIR) && zip -r Snake.app.zip Snake.app
 
 clean:
 	rm -rf $(TARGET) $(APP_NAME) $(ICONSET_DIR) $(ICNS_FILE)
