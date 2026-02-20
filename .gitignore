@@ -2,9 +2,22 @@
 src/ports/pc/snake
 src/ports/pc-gui/snake-gui
 
+# Test binaries
+test/test_lcd
+test/test_sprites
+test/test_renderer
+test/test_ui
+
 # Object files
 *.o
 *.obj
+
+# Bundle artifacts
+src/ports/pc-gui/Snake.app/
+src/ports/pc-gui/Snake.iconset/
+src/ports/pc-gui/Snake.icns
+downloads/Snake.app/
+downloads/Snake.app.zip
 
 # macOS
 .DS_Store

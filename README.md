@@ -6,6 +6,12 @@ Every pixel of the original 84x48 monochrome LCD is simulated — the sprites, t
 
 [![Retro Snake gameplay](https://img.youtube.com/vi/evuz6vnfXrQ/maxresdefault.jpg)](https://youtu.be/evuz6vnfXrQ)
 
+## Download
+
+Pre-built binaries available for **macOS Apple Silicon** (M1/M2/M3/M4). No dependencies needed — just download and play.
+
+See [Downloads](downloads/DOWNLOADS.md) for links and instructions.
+
 ## Features
 
 - **Pixel-perfect Nokia 3310 aesthetic** — 4x4 sprites, bitmap font, 84x48 LCD framebuffer
