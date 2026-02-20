@@ -3,6 +3,8 @@ src/ports/pc/snake
 src/ports/pc-gui/snake-gui
 
 # Test binaries
+test/test_game
+test/test_snake
 test/test_lcd
 test/test_sprites
 test/test_renderer
