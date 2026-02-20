@@ -429,3 +429,37 @@ void render_pause_menu(int selected, int first_visible)
     /* Scrollbar */
     draw_scrollbar(items_y, PAUSE_ITEM_COUNT, max_vis, selected);
 }
+
+void render_quit_confirm(int selected)
+{
+    static const char *QUIT_ITEMS[2] = { "No", "Yes" };
+
+    lcd_clear();
+
+    /* Border */
+    lcd_draw_rect(0, 0, LCD_WIDTH, LCD_HEIGHT);
+
+    /* Header */
+    lcd_fill_rect(1, 1, LCD_WIDTH - 2, PAUSE_HEADER_H);
+    {
+        const char *title = "QUIT?";
+        int tw = lcd_text_width(title);
+        lcd_draw_text_inv((LCD_WIDTH - tw) / 2, 1, title);
+    }
+
+    /* Items */
+    int items_y = 1 + PAUSE_HEADER_H;
+
+    for (int i = 0; i < 2; i++) {
+        int iy = items_y + i * MENU_ITEM_H;
+        int tx = MENU_PAD_X;
+        int ty = iy + MENU_PAD_Y;
+
+        if (i == selected) {
+            lcd_fill_rect(2, iy + 1, CONTENT_RIGHT - 2, MENU_ITEM_H - 1);
+            lcd_draw_text_inv(tx, ty, QUIT_ITEMS[i]);
+        } else {
+            lcd_draw_text(tx, ty, QUIT_ITEMS[i]);
+        }
+    }
+}

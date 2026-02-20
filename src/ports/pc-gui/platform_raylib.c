@@ -1,5 +1,6 @@
 #include "../../platform.h"
 #include "audio.h"
+#include "icon_data.h"
 #include <raylib.h>
 
 /* LCD presentation constants */
@@ -27,6 +28,11 @@ int platform_init(void)
     lcd_oy = BEZEL;
 
     InitWindow(w, h, "Snake - Nokia 3310");
+    SetExitKey(0); /* disable Raylib's default ESC-to-close */
+    Image icon = LoadImageFromMemory(".png", public_icon_png,
+                                     (int)public_icon_png_len);
+    SetWindowIcon(icon);
+    UnloadImage(icon);
     SetTargetFPS(60);
     audio_init();
     return 0;
