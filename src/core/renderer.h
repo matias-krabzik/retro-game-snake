@@ -44,4 +44,8 @@ void render_menu(int view, int selected, int first_visible,
 /* Render pause menu overlay to LCD framebuffer */
 void render_pause_menu(int selected, int first_visible);
 
+/* Render quit confirmation dialog to LCD framebuffer.
+ * selected: 0 = No, 1 = Yes */
+void render_quit_confirm(int selected);
+
 #endif /* CORE_RENDERER_H */

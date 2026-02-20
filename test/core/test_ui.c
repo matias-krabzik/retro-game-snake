@@ -166,19 +166,19 @@ static void test_menu_enter_credits(void)
 static void test_menu_exit(void)
 {
     UiState_t ui = make_ui();
-    /* Navigate to item 5 (Exit) */
+    /* Navigate to item 5 (Exit) — now goes to quit confirm */
     for (int i = 0; i < 5; i++) ui_handle_input(&ui, UI_INPUT_DOWN);
-    UiResult_t r = ui_handle_input(&ui, UI_INPUT_CONFIRM);
-    ASSERT_EQ(r.action, UI_ACTION_QUIT);
-    ASSERT_EQ(ui.state, APP_QUIT);
+    ui_handle_input(&ui, UI_INPUT_CONFIRM);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+    ASSERT_EQ(ui.quit_confirm_return, APP_MENU);
 }
 
 static void test_menu_back_from_main_quits(void)
 {
     UiState_t ui = make_ui();
-    UiResult_t r = ui_handle_input(&ui, UI_INPUT_BACK);
-    ASSERT_EQ(r.action, UI_ACTION_QUIT);
-    ASSERT_EQ(ui.state, APP_QUIT);
+    ui_handle_input(&ui, UI_INPUT_BACK);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+    ASSERT_EQ(ui.quit_confirm_return, APP_MENU);
 }
 
 static void test_menu_back_from_submenu(void)
@@ -404,11 +404,11 @@ static void test_pause_exit(void)
     ui.state = APP_PLAYING;
     ui_enter_pause(&ui);
 
-    /* Item 3 = Exit */
+    /* Item 3 = Exit — now goes to quit confirm */
     for (int i = 0; i < 3; i++) ui_handle_input(&ui, UI_INPUT_DOWN);
-    UiResult_t r = ui_handle_input(&ui, UI_INPUT_CONFIRM);
-    ASSERT_EQ(r.action, UI_ACTION_QUIT);
-    ASSERT_EQ(ui.state, APP_QUIT);
+    ui_handle_input(&ui, UI_INPUT_CONFIRM);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+    ASSERT_EQ(ui.quit_confirm_return, APP_PAUSED);
 }
 
 static void test_pause_back_resumes(void)
@@ -436,9 +436,9 @@ static void test_playing_quit(void)
 {
     UiState_t ui = make_ui();
     ui.state = APP_PLAYING;
-    UiResult_t r = ui_handle_input(&ui, UI_INPUT_QUIT);
-    ASSERT_EQ(r.action, UI_ACTION_QUIT);
-    ASSERT_EQ(ui.state, APP_QUIT);
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+    ASSERT_EQ(ui.quit_confirm_return, APP_PLAYING);
 }
 
 static void test_playing_directional_noop(void)
@@ -478,9 +478,102 @@ static void test_game_over_quit(void)
     UiState_t ui = make_ui();
     ui_enter_game_over(&ui);
 
-    UiResult_t r = ui_handle_input(&ui, UI_INPUT_QUIT);
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+    ASSERT_EQ(ui.quit_confirm_return, APP_GAME_OVER);
+}
+
+/* ---- Quit confirmation ---- */
+
+static void test_quit_confirm_default_no(void)
+{
+    UiState_t ui = make_ui();
+    ui.state = APP_PLAYING;
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+    ASSERT_EQ(ui.quit_confirm_selected, 0); /* defaults to No */
+}
+
+static void test_quit_confirm_toggle(void)
+{
+    UiState_t ui = make_ui();
+    ui.state = APP_PLAYING;
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+
+    UiResult_t r = ui_handle_input(&ui, UI_INPUT_DOWN);
+    ASSERT_EQ(ui.quit_confirm_selected, 1); /* Yes */
+    ASSERT_EQ(r.sound, SND_NAV);
+
+    ui_handle_input(&ui, UI_INPUT_UP);
+    ASSERT_EQ(ui.quit_confirm_selected, 0); /* No */
+}
+
+static void test_quit_confirm_yes(void)
+{
+    UiState_t ui = make_ui();
+    ui.state = APP_PLAYING;
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+
+    /* Select Yes */
+    ui_handle_input(&ui, UI_INPUT_DOWN);
+    UiResult_t r = ui_handle_input(&ui, UI_INPUT_CONFIRM);
     ASSERT_EQ(r.action, UI_ACTION_QUIT);
+    ASSERT_EQ(r.sound, SND_SELECT);
     ASSERT_EQ(ui.state, APP_QUIT);
+}
+
+static void test_quit_confirm_no(void)
+{
+    UiState_t ui = make_ui();
+    ui.state = APP_PLAYING;
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+
+    /* Confirm on No (default) */
+    UiResult_t r = ui_handle_input(&ui, UI_INPUT_CONFIRM);
+    ASSERT_EQ(r.action, UI_ACTION_NONE);
+    ASSERT_EQ(ui.state, APP_PLAYING); /* returns to previous state */
+}
+
+static void test_quit_confirm_back_cancels(void)
+{
+    UiState_t ui = make_ui();
+    ui.state = APP_PLAYING;
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+
+    UiResult_t r = ui_handle_input(&ui, UI_INPUT_BACK);
+    ASSERT_EQ(r.action, UI_ACTION_NONE);
+    ASSERT_EQ(ui.state, APP_PLAYING);
+}
+
+static void test_quit_confirm_from_menu(void)
+{
+    UiState_t ui = make_ui();
+    /* Q from main menu */
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+    /* Not direct quit from main menu — Q only works on VIEW_MAIN via handle_menu_list */
+    /* Back on main menu triggers quit confirm */
+    ui = make_ui();
+    ui_handle_input(&ui, UI_INPUT_BACK);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+
+    /* Confirm No → back to menu */
+    ui_handle_input(&ui, UI_INPUT_CONFIRM);
+    ASSERT_EQ(ui.state, APP_MENU);
+}
+
+static void test_quit_confirm_from_pause(void)
+{
+    UiState_t ui = make_ui();
+    ui.state = APP_PLAYING;
+    ui_enter_pause(&ui);
+
+    ui_handle_input(&ui, UI_INPUT_QUIT);
+    ASSERT_EQ(ui.state, APP_QUIT_CONFIRM);
+    ASSERT_EQ(ui.quit_confirm_return, APP_PAUSED);
+
+    /* Cancel → back to paused */
+    ui_handle_input(&ui, UI_INPUT_BACK);
+    ASSERT_EQ(ui.state, APP_PAUSED);
 }
 
 /* ---- Scroll animation ---- */
@@ -559,6 +652,15 @@ int main(void)
     RUN(test_game_over_confirm_restarts);
     RUN(test_game_over_back_goes_to_menu);
     RUN(test_game_over_quit);
+
+    /* Quit confirmation */
+    RUN(test_quit_confirm_default_no);
+    RUN(test_quit_confirm_toggle);
+    RUN(test_quit_confirm_yes);
+    RUN(test_quit_confirm_no);
+    RUN(test_quit_confirm_back_cancels);
+    RUN(test_quit_confirm_from_menu);
+    RUN(test_quit_confirm_from_pause);
 
     /* Scroll animation */
     RUN(test_scroll_noop_when_playing);

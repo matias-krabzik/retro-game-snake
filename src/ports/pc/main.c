@@ -108,6 +108,9 @@ int main(void)
         case APP_PAUSED:
             render_pause_menu(ui.pause_selected, ui.pause_first_visible);
             break;
+        case APP_QUIT_CONFIRM:
+            render_quit_confirm(ui.quit_confirm_selected);
+            break;
         case APP_QUIT:
             break;
         }

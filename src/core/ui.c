@@ -72,6 +72,13 @@ static UiResult_t make_result(UiAction_t action, SoundType_t sound)
 
 #define NO_RESULT  make_result(UI_ACTION_NONE, SND_COUNT)
 
+static void ui_enter_quit_confirm(UiState_t *ui)
+{
+    ui->quit_confirm_return = ui->state;
+    ui->quit_confirm_selected = 0; /* default to "No" */
+    ui->state = APP_QUIT_CONFIRM;
+}
+
 /* --- Initialization --- */
 
 void ui_init(UiState_t *ui, int palette_idx, int volume, int speed)
@@ -124,8 +131,8 @@ static UiResult_t handle_menu_sound_speed(UiState_t *ui, UiInput_t input)
     }
 
     case UI_INPUT_QUIT:
-        ui->state = APP_QUIT;
-        return make_result(UI_ACTION_QUIT, SND_COUNT);
+        ui_enter_quit_confirm(ui);
+        return make_result(UI_ACTION_NONE, SND_COUNT);
 
     default:
         return NO_RESULT;
@@ -188,8 +195,8 @@ static UiResult_t handle_menu_list(UiState_t *ui, UiInput_t input)
                 reset_scroll(ui);
                 return make_result(UI_ACTION_NONE, SND_SELECT);
             case 5: /* Exit */
-                ui->state = APP_QUIT;
-                return make_result(UI_ACTION_QUIT, SND_SELECT);
+                ui_enter_quit_confirm(ui);
+                return make_result(UI_ACTION_NONE, SND_SELECT);
             }
         } else if (view == VIEW_CREDITS) {
             ui->menu_view = VIEW_MAIN;
@@ -229,14 +236,14 @@ static UiResult_t handle_menu_list(UiState_t *ui, UiInput_t input)
             reset_scroll(ui);
             return make_result(UI_ACTION_NONE, SND_SELECT);
         } else {
-            ui->state = APP_QUIT;
-            return make_result(UI_ACTION_QUIT, SND_COUNT);
+            ui_enter_quit_confirm(ui);
+            return make_result(UI_ACTION_NONE, SND_COUNT);
         }
 
     case UI_INPUT_QUIT:
         if (view == VIEW_MAIN) {
-            ui->state = APP_QUIT;
-            return make_result(UI_ACTION_QUIT, SND_COUNT);
+            ui_enter_quit_confirm(ui);
+            return make_result(UI_ACTION_NONE, SND_COUNT);
         }
         break;
 
@@ -292,8 +299,8 @@ static UiResult_t handle_paused(UiState_t *ui, UiInput_t input)
             reset_scroll(ui);
             return make_result(UI_ACTION_GOTO_MENU, SND_SELECT);
         case 3: /* Exit */
-            ui->state = APP_QUIT;
-            return make_result(UI_ACTION_QUIT, SND_SELECT);
+            ui_enter_quit_confirm(ui);
+            return make_result(UI_ACTION_NONE, SND_SELECT);
         }
         break;
 
@@ -302,8 +309,8 @@ static UiResult_t handle_paused(UiState_t *ui, UiInput_t input)
         return make_result(UI_ACTION_RESUME, SND_COUNT);
 
     case UI_INPUT_QUIT:
-        ui->state = APP_QUIT;
-        return make_result(UI_ACTION_QUIT, SND_COUNT);
+        ui_enter_quit_confirm(ui);
+        return make_result(UI_ACTION_NONE, SND_COUNT);
 
     default:
         break;
@@ -328,8 +335,8 @@ static UiResult_t handle_game_over(UiState_t *ui, UiInput_t input)
         return make_result(UI_ACTION_GOTO_MENU, SND_COUNT);
 
     case UI_INPUT_QUIT:
-        ui->state = APP_QUIT;
-        return make_result(UI_ACTION_QUIT, SND_COUNT);
+        ui_enter_quit_confirm(ui);
+        return make_result(UI_ACTION_NONE, SND_COUNT);
 
     default:
         return NO_RESULT;
@@ -340,12 +347,39 @@ static UiResult_t handle_playing(UiState_t *ui, UiInput_t input)
 {
     switch (input) {
     case UI_INPUT_CONFIRM:
+    case UI_INPUT_BACK:
         ui_enter_pause(ui);
         return NO_RESULT;
 
     case UI_INPUT_QUIT:
-        ui->state = APP_QUIT;
-        return make_result(UI_ACTION_QUIT, SND_COUNT);
+        ui_enter_quit_confirm(ui);
+        return make_result(UI_ACTION_NONE, SND_COUNT);
+
+    default:
+        return NO_RESULT;
+    }
+}
+
+static UiResult_t handle_quit_confirm(UiState_t *ui, UiInput_t input)
+{
+    switch (input) {
+    case UI_INPUT_UP:
+    case UI_INPUT_DOWN:
+        ui->quit_confirm_selected = 1 - ui->quit_confirm_selected;
+        return make_result(UI_ACTION_NONE, SND_NAV);
+
+    case UI_INPUT_CONFIRM:
+        if (ui->quit_confirm_selected == 1) { /* Yes */
+            ui->state = APP_QUIT;
+            return make_result(UI_ACTION_QUIT, SND_SELECT);
+        }
+        /* No — cancel */
+        ui->state = ui->quit_confirm_return;
+        return make_result(UI_ACTION_NONE, SND_SELECT);
+
+    case UI_INPUT_BACK:
+        ui->state = ui->quit_confirm_return;
+        return make_result(UI_ACTION_NONE, SND_COUNT);
 
     default:
         return NO_RESULT;
@@ -360,11 +394,12 @@ UiResult_t ui_handle_input(UiState_t *ui, UiInput_t input)
         return NO_RESULT;
 
     switch (ui->state) {
-    case APP_MENU:      return handle_menu(ui, input);
-    case APP_PLAYING:   return handle_playing(ui, input);
-    case APP_PAUSED:    return handle_paused(ui, input);
-    case APP_GAME_OVER: return handle_game_over(ui, input);
-    case APP_QUIT:      return NO_RESULT;
+    case APP_MENU:          return handle_menu(ui, input);
+    case APP_PLAYING:       return handle_playing(ui, input);
+    case APP_PAUSED:        return handle_paused(ui, input);
+    case APP_GAME_OVER:     return handle_game_over(ui, input);
+    case APP_QUIT_CONFIRM:  return handle_quit_confirm(ui, input);
+    case APP_QUIT:          return NO_RESULT;
     }
     return NO_RESULT;
 }

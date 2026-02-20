@@ -24,6 +24,7 @@ typedef enum {
     APP_PLAYING,
     APP_PAUSED,
     APP_GAME_OVER,
+    APP_QUIT_CONFIRM,
     APP_QUIT,
 } AppState_t;
 
@@ -56,6 +57,10 @@ typedef struct {
     /* Pause menu navigation */
     int pause_selected;
     int pause_first_visible;
+
+    /* Quit confirmation */
+    int quit_confirm_selected;       /* 0 = No, 1 = Yes */
+    AppState_t quit_confirm_return;  /* state to restore on cancel */
 
     /* Settings (owned by UI so menus can display/modify them) */
     int palette_idx;
